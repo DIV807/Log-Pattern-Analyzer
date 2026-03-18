@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Pattern Analyzer – Puppet / Monitoring</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:monospace;font-size:13px;background:#f8f8f7;color:#1a1a18;min-height:100vh}
+.wrap{max-width:1000px;margin:0 auto;padding:1.5rem 1rem}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:1rem;flex-wrap:wrap}
+.topbar h1{font-size:16px;font-weight:500;color:#1a1a18;font-family:sans-serif}
+.badge{font-size:11px;padding:2px 8px;border-radius:6px;background:#e6f1fb;color:#185fa5;font-family:sans-serif}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toolbar select,.toolbar input{font-size:12px;font-family:sans-serif;padding:4px 8px;height:30px;border:0.5px solid #c8c7be;border-radius:6px;background:#fff;color:#1a1a18;outline:none}
+.toolbar input{flex:1;min-width:160px}
+.toolbar input:focus,.toolbar select:focus{border-color:#888780}
+.btn{font-size:12px;font-family:sans-serif;padding:4px 12px;height:30px;cursor:pointer;white-space:nowrap;border:0.5px solid #c8c7be;border-radius:6px;background:#fff;color:#1a1a18}
+.btn:hover{background:#f1efe8}
+.editor-area{margin-bottom:1rem}
+textarea#logInput{width:100%;min-height:130px;font-family:monospace;font-size:12px;padding:10px 12px;resize:vertical;border:0.5px solid #c8c7be;border-radius:8px;background:#f1efe8;color:#1a1a18;line-height:1.6;outline:none}
+textarea#logInput:focus{border-color:#888780}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.card{background:#fff;border:0.5px solid #c8c7be;border-radius:10px;padding:1rem}
+.card-title{font-size:11px;font-weight:500;color:#5f5e5a;font-family:sans-serif;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:#f1efe8;border-radius:6px;padding:8px 12px;flex:1;min-width:80px}
+.stat-label{font-size:11px;color:#5f5e5a;font-family:sans-serif;margin-bottom:2px}
+.stat-val{font-size:20px;font-weight:500;font-family:sans-serif;color:#1a1a18}
+.stat-val.err{color:#a32d2d}.stat-val.warn{color:#ba7517}.stat-val.ok{color:#3b6d11}
+.log-list{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto}
+.log-entry{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:6px;border:0.5px solid #c8c7be;cursor:pointer;transition:background .12s}
+.log-entry:hover{background:#f1efe8}
+.lev{font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;font-family:sans-serif;white-space:nowrap;margin-top:1px}
+.lev.ERROR{background:#fcebeb;color:#a32d2d}
+.lev.WARN{background:#faeeda;color:#854f0b}
+.lev.INFO{background:#e6f1fb;color:#185fa5}
+.lev.DEBUG{background:#f1efe8;color:#5f5e5a}
+.lev.CRIT{background:#f7c1c1;color:#791f1f}
+.log-msg{flex:1;color:#1a1a18;line-height:1.5;word-break:break-all}
+.log-time{font-size:10px;color:#888780;white-space:nowrap;margin-left:auto}
+.pattern-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #c8c7be}
+.pattern-item:last-child{border-bottom:none}
+.pattern-name{font-family:sans-serif;font-size:12px;color:#1a1a18;flex:1}
+.pattern-count{font-family:sans-serif;font-size:12px;font-weight:500;color:#5f5e5a;min-width:24px;text-align:right}
+.bar-bg{height:6px;border-radius:3px;background:#f1efe8;flex:1;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.detail-panel{background:#f1efe8;border:0.5px solid #c8c7be;border-radius:6px;padding:10px 12px;margin-top:8px;min-height:60px;font-size:12px;color:#5f5e5a;line-height:1.7;font-family:sans-serif}
+.detail-panel .dk{color:#1a1a18;font-weight:500}
+.detail-panel .code{font-family:monospace;background:#fff;padding:2px 6px;border-radius:3px;font-size:11px;border:0.5px solid #c8c7be}
+.timeline{display:flex;flex-direction:column;gap:3px;max-height:220px;overflow-y:auto}
+.tl-row{display:flex;align-items:center;gap:8px;font-size:11px;font-family:sans-serif}
+.tl-time{color:#888780;min-width:70px}
+.tl-bar{height:10px;border-radius:2px;min-width:4px;transition:width .3s}
+.tl-count{color:#5f5e5a;min-width:20px;text-align:right}
+.empty{color:#888780;font-family:sans-serif;font-size:13px;padding:1rem 0;text-align:center}
+.tabs{display:flex;gap:0;margin-bottom:12px;border-bottom:0.5px solid #c8c7be}
+.tab{font-size:12px;font-family:sans-serif;padding:6px 14px;cursor:pointer;color:#5f5e5a;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-top:none;border-left:none;border-right:none}
+.tab.active{color:#1a1a18;border-bottom-color:#1a1a18}
+.tab:hover:not(.active){color:#1a1a18}
+.puppet-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pbadge{font-size:11px;font-family:sans-serif;padding:3px 8px;border-radius:3px;border:0.5px solid #c8c7be;cursor:pointer;background:#f1efe8;color:#5f5e5a}
+.pbadge:hover{background:#fff;color:#1a1a18}
+.section-label{font-size:11px;font-weight:500;color:#5f5e5a;font-family:sans-serif;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="topbar">
+  <h1>Log Pattern Analyzer</h1>
+  <span class="badge">Puppet / Monitoring</span>
+</div>
+
+<div class="toolbar">
+  <select id="sampleSel" onchange="loadSample()">
+    <option value="">-- Load sample logs --</option>
+    <option value="puppet">Puppet Agent run</option>
+    <option value="nagios">Nagios alerts</option>
+    <option value="syslog">Syslog mixed</option>
+    <option value="catalog">Puppet catalog errors</option>
+  </select>
+  <input type="text" id="filterIn" placeholder="Filter by keyword..." oninput="analyze()">
+  <select id="levelSel" onchange="analyze()">
+    <option value="">All levels</option>
+    <option value="ERROR">ERROR</option>
+    <option value="WARN">WARN</option>
+    <option value="INFO">INFO</option>
+    <option value="DEBUG">DEBUG</option>
+    <option value="CRIT">CRIT</option>
+  </select>
+  <button class="btn" onclick="clearAll()">Clear</button>
+</div>
+
+<div class="editor-area">
+  <div class="section-label">Paste or type log lines below</div>
+  <div class="puppet-badges">
+    <span class="pbadge" onclick="appendPattern('err')">+ Puppet error</span>
+    <span class="pbadge" onclick="appendPattern('catalog')">+ Catalog apply</span>
+    <span class="pbadge" onclick="appendPattern('nagios')">+ Nagios alert</span>
+    <span class="pbadge" onclick="appendPattern('timeout')">+ Timeout</span>
+    <span class="pbadge" onclick="appendPattern('auth')">+ Auth failure</span>
+  </div>
+  <textarea id="logInput" placeholder="2024-01-15 10:23:41 [ERROR] Puppet: Could not retrieve catalog from remote server..." oninput="analyze()"></textarea>
+</div>
+
+<div class="stat-row">
+  <div class="stat"><div class="stat-label">Total</div><div class="stat-val" id="sTotal">0</div></div>
+  <div class="stat"><div class="stat-label">Errors</div><div class="stat-val err" id="sErr">0</div></div>
+  <div class="stat"><div class="stat-label">Warnings</div><div class="stat-val warn" id="sWarn">0</div></div>
+  <div class="stat"><div class="stat-label">Info</div><div class="stat-val ok" id="sInfo">0</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('parsed',this)">Parsed logs</button>
+  <button class="tab" onclick="switchTab('patterns',this)">Patterns</button>
+  <button class="tab" onclick="switchTab('timeline',this)">Timeline</button>
+</div>
+
+<div id="tab-parsed">
+  <div class="card">
+    <div class="log-list" id="logList"><div class="empty">No logs yet — paste log lines or load a sample above.</div></div>
+  </div>
+  <div class="detail-panel" id="detailPanel">Select a log entry to inspect details.</div>
+</div>
+
+<div id="tab-patterns" style="display:none">
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Top patterns</div>
+      <div id="patternList"><div class="empty">Analyze some logs first.</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Puppet-specific signals</div>
+      <div id="puppetSignals"><div class="empty">No Puppet signals detected.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-timeline" style="display:none">
+  <div class="card">
+    <div class="card-title">Event timeline (by minute)</div>
+    <div class="timeline" id="tlList"><div class="empty">No timestamped logs found.</div></div>
+  </div>
+</div>
+</div>
+
+<script>
+const SAMPLES = {
+puppet:`2024-03-10 08:01:12 [INFO] Puppet: Starting Puppet agent version 7.24.0
+2024-03-10 08:01:14 [INFO] Puppet: Retrieving pluginfacts
+2024-03-10 08:01:18 [INFO] Puppet: Retrieving plugin
+2024-03-10 08:01:22 [WARN] Puppet: Could not retrieve fact='kernel' - timeout after 5s
+2024-03-10 08:01:30 [ERROR] Puppet: Could not retrieve catalog from remote server: Error 500 on SERVER: Could not find resource Service['nginx']
+2024-03-10 08:01:30 [ERROR] Puppet: Not using cache on failed catalog
+2024-03-10 08:01:30 [INFO] Puppet: Run of Puppet configuration client already in progress; skipping
+2024-03-10 08:05:00 [INFO] Puppet: Starting Puppet agent version 7.24.0
+2024-03-10 08:05:04 [INFO] Puppet: Applying configuration version '1710057899'
+2024-03-10 08:05:06 [WARN] Puppet: Class[Apache]: parameter 'logroot' expects a String, got Undef
+2024-03-10 08:05:11 [INFO] Puppet: File[/etc/nginx/nginx.conf]: mode changed '0644' to '0640'
+2024-03-10 08:05:12 [INFO] Puppet: Service[nginx]: triggered 'refresh' from 1 event
+2024-03-10 08:05:14 [ERROR] Puppet: Exec[/usr/sbin/nginx -t]: Failed with exit code 1
+2024-03-10 08:05:14 [CRIT] Puppet: Could not apply complete catalog: Transaction aborted
+2024-03-10 08:05:15 [INFO] Puppet: Finished catalog run in 13.22 seconds`,
+nagios:`[1710057600] SERVICE ALERT: web01.prod;HTTP;CRITICAL;HARD;3;Connection refused
+[1710057605] SERVICE NOTIFICATION: admin;web01.prod;HTTP;CRITICAL;notify-service-by-email;Connection refused
+[1710057650] HOST ALERT: db02.prod;DOWN;HARD;3;PING CRITICAL - Packet loss = 100%
+[1710057660] SERVICE ALERT: db02.prod;MySQL;UNKNOWN;SOFT;1;check_mysql: Access denied for user
+[1710057700] SERVICE ALERT: web01.prod;HTTP;OK;HARD;1;HTTP OK: 200 in 0.123s
+[1710057720] SERVICE ALERT: app03.prod;JVM Heap;WARNING;SOFT;1;WARN: heap usage 87% > threshold 80%
+[1710057800] HOST RECOVERY: db02.prod;UP;HARD;Host recovered
+[1710057900] SERVICE ALERT: app03.prod;JVM Heap;CRITICAL;HARD;3;CRIT: heap usage 96%
+[1710057950] SERVICE NOTIFICATION: oncall;app03.prod;JVM Heap;CRITICAL;notify-service-by-pagerduty;heap 96%`,
+syslog:`Mar 10 08:00:01 web01 systemd[1]: Started Session 4521 of user root.
+Mar 10 08:00:11 web01 sshd[3421]: Failed password for invalid user deploy from 192.168.1.55 port 54321 ssh2
+Mar 10 08:00:12 web01 sshd[3422]: Failed password for invalid user deploy from 192.168.1.55 port 54322 ssh2
+Mar 10 08:00:13 web01 sshd[3423]: Failed password for invalid user deploy from 192.168.1.55 port 54323 ssh2
+Mar 10 08:01:00 web01 kernel: oom-killer: gfp_mask=0x27000c0 order=0, oom_score_adj=0
+Mar 10 08:01:01 web01 kernel: Out of memory: Kill process 8821 (java) score 842 or sacrifice child
+Mar 10 08:01:05 web01 puppet-agent[1234]: Could not send report: Error 500 on SERVER: undefined method
+Mar 10 08:02:00 web01 cron[5500]: (root) CMD (/usr/local/bin/health_check.sh)
+Mar 10 08:03:14 db01 mysqld[987]: [Warning] InnoDB: page_cleaner: 1000ms intended loop took 4521ms
+Mar 10 08:03:20 db01 mysqld[987]: [ERROR] Can't open and lock privilege tables: Table 'mysql.user' doesn't exist
+Mar 10 08:05:00 web01 puppet-agent[1234]: Applying configuration version '1710057899'
+Mar 10 08:05:14 web01 puppet-agent[1234]: Finished catalog run in 8.44 seconds`,
+catalog:`2024-03-10 09:10:00 [INFO] Puppet: Catalog compilation started for node01.example.com
+2024-03-10 09:10:01 [ERROR] Puppet: Could not retrieve catalog: Error 400 on SERVER: Failed to parse template ntp/ntp.conf.erb
+2024-03-10 09:10:01 [ERROR] Puppet: Error: undefined method 'each' for nil:NilClass in ntp/ntp.conf.erb
+2024-03-10 09:10:02 [WARN] Puppet: Using cached catalog from 2024-03-09 22:00:00 UTC
+2024-03-10 09:10:05 [INFO] Puppet: Applying cached catalog version '1710028800'
+2024-03-10 09:10:08 [ERROR] Puppet: File[/etc/ntp.conf]: Could not evaluate: Could not retrieve file metadata: SSL_connect returned=1 errno=0 state=error: certificate verify failed
+2024-03-10 09:10:09 [WARN] Puppet: Skipping File[/etc/ntp.conf] due to dependency failure
+2024-03-10 09:10:10 [ERROR] Puppet: Service[ntpd]: Could not start: systemd returned 1 exit code
+2024-03-10 09:10:11 [CRIT] Puppet: Finished catalog run in 11.03 seconds with 3 error(s)`
+};
+
+const SNIPPETS = {
+  err:'2024-03-10 08:00:00 [ERROR] Puppet: Could not retrieve catalog from remote server: Error 500\n',
+  catalog:"2024-03-10 08:00:01 [INFO] Puppet: Applying configuration version '1710057899'\n2024-03-10 08:00:05 [INFO] Puppet: Finished catalog run in 7.82 seconds\n",
+  nagios:'[1710057600] SERVICE ALERT: web01.prod;HTTP;CRITICAL;HARD;3;Connection refused\n',
+  timeout:'2024-03-10 08:00:02 [WARN] Puppet: Could not retrieve fact - timeout after 5s\n',
+  auth:'Mar 10 08:00:11 web01 sshd[3421]: Failed password for invalid user deploy from 10.0.0.1 port 54321 ssh2\n'
+};
+
+const PUPPET_PATTERNS = [
+  {re:/catalog.*error|error.*catalog/i,label:'Catalog error',sev:'error'},
+  {re:/could not retrieve catalog/i,label:'Catalog retrieval failure',sev:'error'},
+  {re:/transaction aborted/i,label:'Transaction aborted',sev:'critical'},
+  {re:/certificate verify failed/i,label:'SSL/cert failure',sev:'error'},
+  {re:/finished catalog run.*error/i,label:'Run completed with errors',sev:'warn'},
+  {re:/applying configuration version/i,label:'Catalog apply started',sev:'info'},
+  {re:/finished catalog run/i,label:'Catalog apply success',sev:'info'},
+  {re:/timeout|timed out/i,label:'Timeout',sev:'warn'},
+  {re:/failed password|authentication failure/i,label:'Auth failure',sev:'warn'},
+  {re:/oom-killer|out of memory/i,label:'OOM event',sev:'critical'},
+  {re:/service alert.*critical/i,label:'Nagios critical',sev:'error'},
+  {re:/service alert.*warning/i,label:'Nagios warning',sev:'warn'},
+  {re:/service recovery|host recovery/i,label:'Recovery event',sev:'info'},
+  {re:/innodb|mysqld.*error/i,label:'MySQL error',sev:'error'},
+  {re:/heap usage.*%/i,label:'JVM heap pressure',sev:'warn'},
+];
+
+let parsed = [];
+
+function loadSample(){
+  const v = document.getElementById('sampleSel').value;
+  if(v && SAMPLES[v]){ document.getElementById('logInput').value = SAMPLES[v]; analyze(); }
+}
+
+function appendPattern(k){
+  document.getElementById('logInput').value += SNIPPETS[k] || '';
+  analyze();
+}
+
+function clearAll(){
+  document.getElementById('logInput').value = '';
+  document.getElementById('filterIn').value = '';
+  document.getElementById('sampleSel').value = '';
+  analyze();
+}
+
+function parseLevel(line){
+  if(/\[ERROR\]|ERROR:|sshd.*failed password|mysqld.*\[ERROR\]|\bERROR\b/i.test(line)) return 'ERROR';
+  if(/\[WARN\]|WARNING|WARN:/i.test(line)) return 'WARN';
+  if(/\[INFO\]|INFO:/i.test(line)) return 'INFO';
+  if(/\[DEBUG\]|DEBUG:/i.test(line)) return 'DEBUG';
+  if(/\[CRIT\]|CRITICAL|CRIT:/i.test(line)) return 'CRIT';
+  if(/ALERT.*CRITICAL|DOWN;HARD/i.test(line)) return 'CRIT';
+  if(/ALERT.*WARNING/i.test(line)) return 'WARN';
+  if(/ALERT.*OK|RECOVERY/i.test(line)) return 'INFO';
+  return 'INFO';
+}
+
+function parseTime(line){
+  let m;
+  m = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/); if(m) return m[1];
+  m = line.match(/\[(\d{10})\]/); if(m){ const d = new Date(parseInt(m[1])*1000); return d.toISOString().slice(0,16).replace('T',' '); }
+  m = line.match(/(Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb)\s+\d+\s+\d{2}:\d{2}/i); if(m) return m[0];
+  return null;
+}
+
+function extractMsg(line){
+  let s = line.replace(/^\[?\d{10}\]?\s*/, '').replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s*/, '');
+  s = s.replace(/\[(ERROR|WARN|INFO|DEBUG|CRIT)\]\s*/i, '');
+  return s.trim() || line;
+}
+
+function analyze(){
+  const raw = document.getElementById('logInput').value;
+  const filt = document.getElementById('filterIn').value.toLowerCase();
+  const lvl = document.getElementById('levelSel').value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  parsed = lines.map(l => ({raw:l, level:parseLevel(l), time:parseTime(l), msg:extractMsg(l)}));
+  let shown = parsed.filter(e => (!filt || e.raw.toLowerCase().includes(filt)) && (!lvl || e.level === lvl));
+
+  const counts = {ERROR:0, WARN:0, INFO:0, DEBUG:0, CRIT:0};
+  parsed.forEach(e => counts[e.level] = (counts[e.level]||0) + 1);
+  document.getElementById('sTotal').textContent = parsed.length;
+  document.getElementById('sErr').textContent = (counts.ERROR||0) + (counts.CRIT||0);
+  document.getElementById('sWarn').textContent = counts.WARN || 0;
+  document.getElementById('sInfo').textContent = (counts.INFO||0) + (counts.DEBUG||0);
+
+  renderParsed(shown);
+  renderPatterns(parsed);
+  renderTimeline(parsed);
+}
+
+function renderParsed(entries){
+  const el = document.getElementById('logList');
+  if(!entries.length){ el.innerHTML='<div class="empty">No matching log entries.</div>'; return; }
+  el.innerHTML = entries.map(e => `<div class="log-entry" onclick="showDetail(${parsed.indexOf(e)})">
+    <span class="lev ${e.level}">${e.level}</span>
+    <span class="log-msg">${esc(e.msg.slice(0,160))}</span>
+    ${e.time ? `<span class="log-time">${esc(e.time.slice(11)||e.time.slice(0,10))}</span>` : ''}
+  </div>`).join('');
+}
+
+function showDetail(idx){
+  const e = parsed[idx]; if(!e) return;
+  const puppetMatches = PUPPET_PATTERNS.filter(p => p.re.test(e.raw));
+  let html = `<span class="dk">Raw line:</span> <span class="code">${esc(e.raw.slice(0,200))}</span><br>`;
+  if(e.time) html += `<span class="dk">Timestamp:</span> ${esc(e.time)}&nbsp; `;
+  html += `<span class="dk">Level:</span> ${e.level}<br>`;
+  if(puppetMatches.length){
+    html += `<span class="dk">Signals:</span> `;
+    html += puppetMatches.map(p => `<span class="lev ${p.sev==='error'?'ERROR':p.sev==='critical'?'CRIT':p.sev==='warn'?'WARN':'INFO'}" style="margin-right:4px">${esc(p.label)}</span>`).join('');
+  }
+  document.getElementById('detailPanel').innerHTML = html;
+}
+
+function renderPatterns(entries){
+  const patMap = {};
+  entries.forEach(e => {
+    PUPPET_PATTERNS.forEach(p => {
+      if(p.re.test(e.raw)) patMap[p.label] = (patMap[p.label]||0) + 1;
+    });
+  });
+  const sorted = Object.entries(patMap).sort((a,b) => b[1]-a[1]);
+  const max = sorted[0] ? sorted[0][1] : 1;
+
+  const pl = document.getElementById('patternList');
+  if(!sorted.length){ pl.innerHTML='<div class="empty">No patterns found.</div>'; return; }
+  pl.innerHTML = sorted.slice(0,8).map(([name,cnt]) => `<div class="pattern-item">
+    <span class="pattern-name">${esc(name)}</span>
+    <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(cnt/max*100)}%;background:#378ADD"></div></div>
+    <span class="pattern-count">${cnt}</span>
+  </div>`).join('');
+
+  const puppetSignals = entries.filter(e => /puppet/i.test(e.raw));
+  const ps = document.getElementById('puppetSignals');
+  if(!puppetSignals.length){ ps.innerHTML='<div class="empty">No Puppet-specific lines detected.</div>'; return; }
+  const catalog = puppetSignals.filter(e => /catalog/i.test(e.raw)).length;
+  const ssl = puppetSignals.filter(e => /ssl|certificate/i.test(e.raw)).length;
+  const runs = puppetSignals.filter(e => /finished catalog run/i.test(e.raw));
+  const lastRun = runs[runs.length-1];
+  const timeMatch = lastRun ? lastRun.raw.match(/(\d+\.\d+) seconds/) : null;
+  ps.innerHTML = `<div class="pattern-item"><span class="pattern-name">Puppet log lines</span><span class="pattern-count">${puppetSignals.length}</span></div>
+<div class="pattern-item"><span class="pattern-name">Catalog-related</span><span class="pattern-count">${catalog}</span></div>
+${ssl ? `<div class="pattern-item"><span class="pattern-name" style="color:#a32d2d">SSL/cert issues</span><span class="pattern-count">${ssl}</span></div>` : ''}
+${timeMatch ? `<div class="pattern-item"><span class="pattern-name">Last run time</span><span class="pattern-count">${timeMatch[1]}s</span></div>` : ''}`;
+}
+
+function renderTimeline(entries){
+  const tl = {};
+  entries.forEach(e => {
+    if(!e.time) return;
+    const key = e.time.slice(0,16);
+    if(!tl[key]) tl[key] = {total:0, err:0};
+    tl[key].total++;
+    if(e.level==='ERROR' || e.level==='CRIT') tl[key].err++;
+  });
+  const sorted = Object.entries(tl).sort((a,b) => a[0]>b[0]?1:-1);
+  const el = document.getElementById('tlList');
+  if(!sorted.length){ el.innerHTML='<div class="empty">No timestamped entries found.</div>'; return; }
+  const maxC = Math.max(...sorted.map(([,v]) => v.total));
+  el.innerHTML = sorted.map(([t,v]) => `<div class="tl-row">
+    <span class="tl-time">${t.slice(11)||t.slice(5,10)}</span>
+    <div class="bar-bg" style="flex:1"><div class="tl-bar" style="width:${Math.round(v.total/maxC*100)}%;background:${v.err>0?'#E24B4A':'#378ADD'}"></div></div>
+    <span class="tl-count">${v.total}${v.err?` <span style="color:#a32d2d">(${v.err}e)</span>`:''}</span>
+  </div>`).join('');
+}
+
+function switchTab(name, el){
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['parsed','patterns','timeline'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = (t===name ? '' : 'none');
+  });
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+analyze();
+</script>
+</body>
+</html>
