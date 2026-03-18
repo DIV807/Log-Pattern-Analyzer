@@ -1,0 +1,61 @@
+version: '3.9'
+
+services:
+
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+    container_name: log-analyzer-api
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      LOG_DIR: /var/log/puppet
+      # Alert thresholds (adjust as needed)
+      ALERT_ERROR_COUNT: 5
+      ALERT_CRIT_COUNT: 1
+      ALERT_WARN_COUNT: 10
+      ALERT_OOM_COUNT: 1
+      ALERT_SSL_COUNT: 1
+      ALERT_CATALOG_COUNT: 2
+      # Optional: set your Slack webhook URL for critical alerts
+      # SLACK_WEBHOOK_URL: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+    volumes:
+      # Mount host log directory into container (read-only)
+      - puppet_logs:/var/log/puppet:ro
+    networks:
+      - analyzer-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Frontend (nginx) ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    container_name: log-analyzer-ui
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - analyzer-net
+
+networks:
+  analyzer-net:
+    driver: bridge
+
+volumes:
+  # Named volume — map to real log path in .env or override with bind mount:
+  # volumes:
+  #   puppet_logs:
+  #     driver: local
+  #     driver_opts:
+  #       type: none
+  #       o: bind
+  #       device: /var/log/puppet
+  puppet_logs:

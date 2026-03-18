@@ -1,0 +1,56 @@
+# /etc/filebeat/filebeat.yml
+# Managed by Puppet — do not edit manually.
+# Template: filebeat/templates/filebeat.yml.erb
+
+filebeat.inputs:
+
+  # Puppet agent logs
+  - type: log
+    enabled: true
+    paths:
+      - <%= @log_dir %>/*.log
+      - /var/log/syslog
+    fields:
+      source: puppet
+      environment: <%= scope['::environment'] %>
+      hostname: <%= scope['::fqdn'] %>
+    fields_under_root: true
+    multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+    multiline.negate: true
+    multiline.match: after
+
+  # Nagios / monitoring logs
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nagios/*.log
+      - /var/log/icinga2/*.log
+    fields:
+      source: monitoring
+      hostname: <%= scope['::fqdn'] %>
+    fields_under_root: true
+
+processors:
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~
+  - drop_fields:
+      fields: ["agent.ephemeral_id", "ecs.version"]
+      ignore_missing: true
+
+output.http:
+  hosts: ["http://<%= @api_host %>:<%= @api_port %>"]
+  path: "/api/analyze"
+  method: post
+  headers:
+    Content-Type: "application/json"
+  # Wrap log events in the expected JSON schema
+  codec.format:
+    string: '{"logs": "%{[message]}"}'
+
+logging.level: warning
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat.log
+  keepfiles: 5
+  permissions: 0640
