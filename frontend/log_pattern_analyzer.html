@@ -4,74 +4,126 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Log Pattern Analyzer – Puppet / Monitoring</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
+:root {
+  --bg:#f8f8f7;--bg2:#f1efe8;--surface:#ffffff;--border:#c8c7be;
+  --text:#1a1a18;--muted:#5f5e5a;--hint:#888780;--teal:#185fa5;
+  --badge-bg:#e6f1fb;--badge-txt:#185fa5;--stat-bg:#f1efe8;
+  --err:#a32d2d;--warn:#ba7517;--ok:#3b6d11;
+}
+body.dark {
+  --bg:#0f1117;--bg2:#181c24;--surface:#1e2330;--border:#2e3548;
+  --text:#e8eaf0;--muted:#8a90a0;--hint:#5a6070;--teal:#4ea8de;
+  --badge-bg:#1a2a3a;--badge-txt:#4ea8de;--stat-bg:#181c24;
+  --err:#e05c5c;--warn:#e0a030;--ok:#4caf80;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:monospace;font-size:13px;background:#f8f8f7;color:#1a1a18;min-height:100vh}
-.wrap{max-width:1000px;margin:0 auto;padding:1.5rem 1rem}
-.topbar{display:flex;align-items:center;gap:12px;margin-bottom:1rem;flex-wrap:wrap}
-.topbar h1{font-size:16px;font-weight:500;color:#1a1a18;font-family:sans-serif}
-.badge{font-size:11px;padding:2px 8px;border-radius:6px;background:#e6f1fb;color:#185fa5;font-family:sans-serif}
-.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.toolbar select,.toolbar input{font-size:12px;font-family:sans-serif;padding:4px 8px;height:30px;border:0.5px solid #c8c7be;border-radius:6px;background:#fff;color:#1a1a18;outline:none}
-.toolbar input{flex:1;min-width:160px}
-.toolbar input:focus,.toolbar select:focus{border-color:#888780}
-.btn{font-size:12px;font-family:sans-serif;padding:4px 12px;height:30px;cursor:pointer;white-space:nowrap;border:0.5px solid #c8c7be;border-radius:6px;background:#fff;color:#1a1a18}
-.btn:hover{background:#f1efe8}
+body{font-family:monospace;font-size:13px;background:var(--bg);color:var(--text);min-height:100vh;transition:background .2s,color .2s}
+.wrap{max-width:1060px;margin:0 auto;padding:1.5rem 1rem}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+.topbar h1{font-size:16px;font-weight:500;color:var(--text);font-family:sans-serif}
+.badge{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--badge-bg);color:var(--badge-txt);font-family:sans-serif}
+.spacer{flex:1}
+.dm-toggle{display:flex;align-items:center;gap:7px;font-size:11px;font-family:sans-serif;color:var(--muted);cursor:pointer;user-select:none}
+.dm-switch{width:32px;height:18px;border-radius:9px;background:var(--border);position:relative;transition:background .2s;flex-shrink:0}
+.dm-switch::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s}
+body.dark .dm-switch{background:var(--teal)}
+body.dark .dm-switch::after{transform:translateX(14px)}
+.poll-badge{font-size:10px;font-family:sans-serif;padding:2px 10px;border-radius:10px;border:0.5px solid var(--border);color:var(--muted);display:flex;align-items:center;gap:5px}
+.poll-dot{width:7px;height:7px;border-radius:50%;background:var(--hint)}
+.poll-dot.active{background:#4caf80;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.toolbar select,.toolbar input[type=text]{font-size:12px;font-family:sans-serif;padding:4px 8px;height:30px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);outline:none}
+.toolbar input[type=text]{flex:1;min-width:160px}
+.toolbar select:focus,.toolbar input[type=text]:focus{border-color:var(--teal)}
+.btn{font-size:12px;font-family:sans-serif;padding:4px 12px;height:30px;cursor:pointer;white-space:nowrap;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);transition:background .12s}
+.btn:hover{background:var(--bg2)}
+.btn.primary{border-color:var(--teal);color:var(--teal)}
+.btn.danger{border-color:#c8a0a0;color:var(--err)}
+.upload-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;padding:8px 10px;border:0.5px solid var(--border);border-radius:8px;background:var(--surface)}
+.row-label{font-size:11px;font-weight:500;color:var(--muted);font-family:sans-serif;white-space:nowrap}
+input[type=file]{font-size:11px;font-family:sans-serif;color:var(--text);cursor:pointer;min-width:0}
+input[type=file]::file-selector-button{font-size:11px;font-family:sans-serif;padding:3px 10px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;margin-right:8px}
+.divider{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.poll-interval{width:58px;font-size:12px;font-family:sans-serif;padding:3px 6px;height:28px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);outline:none}
 .editor-area{margin-bottom:1rem}
-textarea#logInput{width:100%;min-height:130px;font-family:monospace;font-size:12px;padding:10px 12px;resize:vertical;border:0.5px solid #c8c7be;border-radius:8px;background:#f1efe8;color:#1a1a18;line-height:1.6;outline:none}
-textarea#logInput:focus{border-color:#888780}
+textarea#logInput{width:100%;min-height:130px;font-family:monospace;font-size:12px;padding:10px 12px;resize:vertical;border:0.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);line-height:1.6;outline:none}
+textarea#logInput:focus{border-color:var(--teal)}
+.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:var(--stat-bg);border-radius:6px;padding:8px 12px;flex:1;min-width:75px}
+.stat-label{font-size:11px;color:var(--muted);font-family:sans-serif;margin-bottom:2px}
+.stat-val{font-size:20px;font-weight:500;font-family:sans-serif;color:var(--text)}
+.stat-val.err{color:var(--err)}.stat-val.warn{color:var(--warn)}.stat-val.ok{color:var(--ok)}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px}
 @media(max-width:600px){.grid2{grid-template-columns:1fr}}
-.card{background:#fff;border:0.5px solid #c8c7be;border-radius:10px;padding:1rem}
-.card-title{font-size:11px;font-weight:500;color:#5f5e5a;font-family:sans-serif;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
-.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.stat{background:#f1efe8;border-radius:6px;padding:8px 12px;flex:1;min-width:80px}
-.stat-label{font-size:11px;color:#5f5e5a;font-family:sans-serif;margin-bottom:2px}
-.stat-val{font-size:20px;font-weight:500;font-family:sans-serif;color:#1a1a18}
-.stat-val.err{color:#a32d2d}.stat-val.warn{color:#ba7517}.stat-val.ok{color:#3b6d11}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:1rem}
+.card-title{font-size:11px;font-weight:500;color:var(--muted);font-family:sans-serif;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
 .log-list{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto}
-.log-entry{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:6px;border:0.5px solid #c8c7be;cursor:pointer;transition:background .12s}
-.log-entry:hover{background:#f1efe8}
+.log-entry{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;transition:background .12s}
+.log-entry:hover{background:var(--bg2)}
 .lev{font-size:10px;font-weight:500;padding:1px 6px;border-radius:3px;font-family:sans-serif;white-space:nowrap;margin-top:1px}
 .lev.ERROR{background:#fcebeb;color:#a32d2d}
 .lev.WARN{background:#faeeda;color:#854f0b}
 .lev.INFO{background:#e6f1fb;color:#185fa5}
 .lev.DEBUG{background:#f1efe8;color:#5f5e5a}
 .lev.CRIT{background:#f7c1c1;color:#791f1f}
-.log-msg{flex:1;color:#1a1a18;line-height:1.5;word-break:break-all}
-.log-time{font-size:10px;color:#888780;white-space:nowrap;margin-left:auto}
-.pattern-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #c8c7be}
+body.dark .lev.ERROR{background:#3a1a1a;color:#e05c5c}
+body.dark .lev.WARN{background:#3a2a10;color:#e0a030}
+body.dark .lev.INFO{background:#0a2030;color:#4ea8de}
+body.dark .lev.DEBUG{background:#1e2330;color:#8a90a0}
+body.dark .lev.CRIT{background:#3a1010;color:#ff7070}
+.log-msg{flex:1;color:var(--text);line-height:1.5;word-break:break-all}
+.log-time{font-size:10px;color:var(--hint);white-space:nowrap;margin-left:auto}
+.hl{background:#fff176;color:#1a1a18;border-radius:2px;padding:0 1px}
+body.dark .hl{background:#7a6a00;color:#fff}
+.showing{font-size:11px;color:var(--hint);font-family:sans-serif;margin-bottom:6px}
+.pattern-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)}
 .pattern-item:last-child{border-bottom:none}
-.pattern-name{font-family:sans-serif;font-size:12px;color:#1a1a18;flex:1}
-.pattern-count{font-family:sans-serif;font-size:12px;font-weight:500;color:#5f5e5a;min-width:24px;text-align:right}
-.bar-bg{height:6px;border-radius:3px;background:#f1efe8;flex:1;overflow:hidden}
+.pattern-name{font-family:sans-serif;font-size:12px;color:var(--text);flex:1}
+.pattern-count{font-family:sans-serif;font-size:12px;font-weight:500;color:var(--muted);min-width:24px;text-align:right}
+.bar-bg{height:6px;border-radius:3px;background:var(--bg2);flex:1;overflow:hidden}
 .bar-fill{height:100%;border-radius:3px;transition:width .3s}
-.detail-panel{background:#f1efe8;border:0.5px solid #c8c7be;border-radius:6px;padding:10px 12px;margin-top:8px;min-height:60px;font-size:12px;color:#5f5e5a;line-height:1.7;font-family:sans-serif}
-.detail-panel .dk{color:#1a1a18;font-weight:500}
-.detail-panel .code{font-family:monospace;background:#fff;padding:2px 6px;border-radius:3px;font-size:11px;border:0.5px solid #c8c7be}
+.detail-panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:8px;min-height:60px;font-size:12px;color:var(--muted);line-height:1.7;font-family:sans-serif}
+.detail-panel .dk{color:var(--text);font-weight:500}
+.detail-panel .code{font-family:monospace;background:var(--surface);padding:2px 6px;border-radius:3px;font-size:11px;border:0.5px solid var(--border)}
 .timeline{display:flex;flex-direction:column;gap:3px;max-height:220px;overflow-y:auto}
 .tl-row{display:flex;align-items:center;gap:8px;font-size:11px;font-family:sans-serif}
-.tl-time{color:#888780;min-width:70px}
+.tl-time{color:var(--hint);min-width:70px}
 .tl-bar{height:10px;border-radius:2px;min-width:4px;transition:width .3s}
-.tl-count{color:#5f5e5a;min-width:20px;text-align:right}
-.empty{color:#888780;font-family:sans-serif;font-size:13px;padding:1rem 0;text-align:center}
-.tabs{display:flex;gap:0;margin-bottom:12px;border-bottom:0.5px solid #c8c7be}
-.tab{font-size:12px;font-family:sans-serif;padding:6px 14px;cursor:pointer;color:#5f5e5a;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-top:none;border-left:none;border-right:none}
-.tab.active{color:#1a1a18;border-bottom-color:#1a1a18}
-.tab:hover:not(.active){color:#1a1a18}
+.tl-count{color:var(--muted);min-width:20px;text-align:right}
+.tabs{display:flex;gap:0;margin-bottom:12px;border-bottom:0.5px solid var(--border)}
+.tab{font-size:12px;font-family:sans-serif;padding:6px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-top:none;border-left:none;border-right:none;transition:color .12s}
+.tab.active{color:var(--text);border-bottom-color:var(--teal)}
+.tab:hover:not(.active){color:var(--text)}
 .puppet-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.pbadge{font-size:11px;font-family:sans-serif;padding:3px 8px;border-radius:3px;border:0.5px solid #c8c7be;cursor:pointer;background:#f1efe8;color:#5f5e5a}
-.pbadge:hover{background:#fff;color:#1a1a18}
-.section-label{font-size:11px;font-weight:500;color:#5f5e5a;font-family:sans-serif;margin-bottom:6px}
+.pbadge{font-size:11px;font-family:sans-serif;padding:3px 8px;border-radius:3px;border:0.5px solid var(--border);cursor:pointer;background:var(--bg2);color:var(--muted)}
+.pbadge:hover{background:var(--surface);color:var(--text)}
+.section-label{font-size:11px;font-weight:500;color:var(--muted);font-family:sans-serif;margin-bottom:6px}
+.empty{color:var(--hint);font-family:sans-serif;font-size:13px;padding:1rem 0;text-align:center}
+.chart-wrap{position:relative;width:100%;height:230px;margin-top:4px}
 </style>
 </head>
 <body>
 <div class="wrap">
+
+<!-- topbar -->
 <div class="topbar">
   <h1>Log Pattern Analyzer</h1>
   <span class="badge">Puppet / Monitoring</span>
+  <div id="pollBadge" class="poll-badge" style="display:none">
+    <span class="poll-dot active"></span>
+    <span id="pollStatus">Polling…</span>
+  </div>
+  <div class="spacer"></div>
+  <label class="dm-toggle" onclick="toggleDark()">
+    Dark mode
+    <div class="dm-switch"></div>
+  </label>
 </div>
 
+<!-- toolbar -->
 <div class="toolbar">
   <select id="sampleSel" onchange="loadSample()">
     <option value="">-- Load sample logs --</option>
@@ -80,7 +132,7 @@ textarea#logInput:focus{border-color:#888780}
     <option value="syslog">Syslog mixed</option>
     <option value="catalog">Puppet catalog errors</option>
   </select>
-  <input type="text" id="filterIn" placeholder="Filter by keyword..." oninput="analyze()">
+  <input type="text" id="filterIn" placeholder="Filter by keyword…" oninput="analyze()">
   <select id="levelSel" onchange="analyze()">
     <option value="">All levels</option>
     <option value="ERROR">ERROR</option>
@@ -89,9 +141,21 @@ textarea#logInput:focus{border-color:#888780}
     <option value="DEBUG">DEBUG</option>
     <option value="CRIT">CRIT</option>
   </select>
-  <button class="btn" onclick="clearAll()">Clear</button>
+  <button class="btn danger" onclick="clearAll()">Clear</button>
 </div>
 
+<!-- file upload + poll row -->
+<div class="upload-row">
+  <span class="row-label">Upload .log file:</span>
+  <input type="file" id="fileUpload" accept=".log,.txt" onchange="handleFileUpload()">
+  <div class="divider"></div>
+  <span class="row-label">Auto-poll every</span>
+  <input type="number" id="pollInterval" class="poll-interval" value="30" min="5" max="3600">
+  <span class="row-label">sec</span>
+  <button class="btn primary" id="pollBtn" onclick="togglePoll()">Start polling</button>
+</div>
+
+<!-- quick insert badges -->
 <div class="editor-area">
   <div class="section-label">Paste or type log lines below</div>
   <div class="puppet-badges">
@@ -101,25 +165,30 @@ textarea#logInput:focus{border-color:#888780}
     <span class="pbadge" onclick="appendPattern('timeout')">+ Timeout</span>
     <span class="pbadge" onclick="appendPattern('auth')">+ Auth failure</span>
   </div>
-  <textarea id="logInput" placeholder="2024-01-15 10:23:41 [ERROR] Puppet: Could not retrieve catalog from remote server..." oninput="analyze()"></textarea>
+  <textarea id="logInput" placeholder="2024-01-15 10:23:41 [ERROR] Puppet: Could not retrieve catalog from remote server…" oninput="analyze()"></textarea>
 </div>
 
+<!-- stats -->
 <div class="stat-row">
   <div class="stat"><div class="stat-label">Total</div><div class="stat-val" id="sTotal">0</div></div>
   <div class="stat"><div class="stat-label">Errors</div><div class="stat-val err" id="sErr">0</div></div>
   <div class="stat"><div class="stat-label">Warnings</div><div class="stat-val warn" id="sWarn">0</div></div>
   <div class="stat"><div class="stat-label">Info</div><div class="stat-val ok" id="sInfo">0</div></div>
+  <div class="stat"><div class="stat-label">Showing</div><div class="stat-val" id="sShowing">0</div></div>
 </div>
 
+<!-- tabs -->
 <div class="tabs">
   <button class="tab active" onclick="switchTab('parsed',this)">Parsed logs</button>
   <button class="tab" onclick="switchTab('patterns',this)">Patterns</button>
   <button class="tab" onclick="switchTab('timeline',this)">Timeline</button>
+  <button class="tab" onclick="switchTab('chart',this)">Severity chart</button>
 </div>
 
 <div id="tab-parsed">
   <div class="card">
-    <div class="log-list" id="logList"><div class="empty">No logs yet — paste log lines or load a sample above.</div></div>
+    <div class="showing" id="showingLabel"></div>
+    <div class="log-list" id="logList"><div class="empty">No logs yet — paste log lines, upload a file, or load a sample above.</div></div>
   </div>
   <div class="detail-panel" id="detailPanel">Select a log entry to inspect details.</div>
 </div>
@@ -143,11 +212,24 @@ textarea#logInput:focus{border-color:#888780}
     <div class="timeline" id="tlList"><div class="empty">No timestamped logs found.</div></div>
   </div>
 </div>
+
+<div id="tab-chart" style="display:none">
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Severity breakdown</div>
+      <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pattern frequency</div>
+      <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <script>
-const SAMPLES = {
-puppet:`2024-03-10 08:01:12 [INFO] Puppet: Starting Puppet agent version 7.24.0
+const SAMPLES={puppet:`2024-03-10 08:01:12 [INFO] Puppet: Starting Puppet agent version 7.24.0
 2024-03-10 08:01:14 [INFO] Puppet: Retrieving pluginfacts
 2024-03-10 08:01:18 [INFO] Puppet: Retrieving plugin
 2024-03-10 08:01:22 [WARN] Puppet: Could not retrieve fact='kernel' - timeout after 5s
@@ -191,10 +273,9 @@ catalog:`2024-03-10 09:10:00 [INFO] Puppet: Catalog compilation started for node
 2024-03-10 09:10:08 [ERROR] Puppet: File[/etc/ntp.conf]: Could not evaluate: Could not retrieve file metadata: SSL_connect returned=1 errno=0 state=error: certificate verify failed
 2024-03-10 09:10:09 [WARN] Puppet: Skipping File[/etc/ntp.conf] due to dependency failure
 2024-03-10 09:10:10 [ERROR] Puppet: Service[ntpd]: Could not start: systemd returned 1 exit code
-2024-03-10 09:10:11 [CRIT] Puppet: Finished catalog run in 11.03 seconds with 3 error(s)`
-};
+2024-03-10 09:10:11 [CRIT] Puppet: Finished catalog run in 11.03 seconds with 3 error(s)`};
 
-const SNIPPETS = {
+const SNIPPETS={
   err:'2024-03-10 08:00:00 [ERROR] Puppet: Could not retrieve catalog from remote server: Error 500\n',
   catalog:"2024-03-10 08:00:01 [INFO] Puppet: Applying configuration version '1710057899'\n2024-03-10 08:00:05 [INFO] Puppet: Finished catalog run in 7.82 seconds\n",
   nagios:'[1710057600] SERVICE ALERT: web01.prod;HTTP;CRITICAL;HARD;3;Connection refused\n',
@@ -202,7 +283,7 @@ const SNIPPETS = {
   auth:'Mar 10 08:00:11 web01 sshd[3421]: Failed password for invalid user deploy from 10.0.0.1 port 54321 ssh2\n'
 };
 
-const PUPPET_PATTERNS = [
+const PUPPET_PATTERNS=[
   {re:/catalog.*error|error.*catalog/i,label:'Catalog error',sev:'error'},
   {re:/could not retrieve catalog/i,label:'Catalog retrieval failure',sev:'error'},
   {re:/transaction aborted/i,label:'Transaction aborted',sev:'critical'},
@@ -220,25 +301,80 @@ const PUPPET_PATTERNS = [
   {re:/heap usage.*%/i,label:'JVM heap pressure',sev:'warn'},
 ];
 
-let parsed = [];
+let parsed=[], pollTimer=null, pollRunning=false, uploadedContent='';
+let pieInst=null, barInst=null;
 
+// ── Dark mode ────────────────────────────────────────────────────────────────
+function toggleDark(){
+  document.body.classList.toggle('dark');
+  localStorage.setItem('darkMode', document.body.classList.contains('dark')?'1':'0');
+  if(pieInst) renderCharts(parsed);
+}
+if(localStorage.getItem('darkMode')==='1') document.body.classList.add('dark');
+
+// ── Toolbar actions ──────────────────────────────────────────────────────────
 function loadSample(){
-  const v = document.getElementById('sampleSel').value;
-  if(v && SAMPLES[v]){ document.getElementById('logInput').value = SAMPLES[v]; analyze(); }
+  const v=document.getElementById('sampleSel').value;
+  if(v&&SAMPLES[v]){document.getElementById('logInput').value=SAMPLES[v];uploadedContent='';analyze();}
 }
-
-function appendPattern(k){
-  document.getElementById('logInput').value += SNIPPETS[k] || '';
-  analyze();
-}
-
+function appendPattern(k){document.getElementById('logInput').value+=SNIPPETS[k]||'';analyze();}
 function clearAll(){
-  document.getElementById('logInput').value = '';
-  document.getElementById('filterIn').value = '';
-  document.getElementById('sampleSel').value = '';
-  analyze();
+  document.getElementById('logInput').value='';
+  document.getElementById('filterIn').value='';
+  document.getElementById('sampleSel').value='';
+  document.getElementById('fileUpload').value='';
+  uploadedContent='';analyze();
 }
 
+// ── File upload ──────────────────────────────────────────────────────────────
+function handleFileUpload(){
+  const file=document.getElementById('fileUpload').files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    uploadedContent=e.target.result;
+    document.getElementById('logInput').value=uploadedContent;
+    document.getElementById('sampleSel').value='';
+    analyze();
+  };
+  reader.readAsText(file);
+}
+
+// ── Scheduled polling ────────────────────────────────────────────────────────
+function togglePoll(){
+  if(pollRunning){
+    clearInterval(pollTimer);pollRunning=false;
+    document.getElementById('pollBtn').textContent='Start polling';
+    document.getElementById('pollBadge').style.display='none';
+  } else {
+    const secs=parseInt(document.getElementById('pollInterval').value)||30;
+    pollRunning=true;
+    document.getElementById('pollBtn').textContent='Stop polling';
+    document.getElementById('pollBadge').style.display='flex';
+    runPoll();
+    pollTimer=setInterval(runPoll, secs*1000);
+  }
+}
+function runPoll(){
+  const fileInput=document.getElementById('fileUpload');
+  if(fileInput.files[0]){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      if(e.target.result!==uploadedContent){
+        uploadedContent=e.target.result;
+        document.getElementById('logInput').value=uploadedContent;
+        analyze();
+      }
+      document.getElementById('pollStatus').textContent='Last checked '+new Date().toLocaleTimeString();
+    };
+    reader.readAsText(fileInput.files[0]);
+  } else {
+    analyze();
+    document.getElementById('pollStatus').textContent='Last checked '+new Date().toLocaleTimeString();
+  }
+}
+
+// ── Parsing helpers ──────────────────────────────────────────────────────────
 function parseLevel(line){
   if(/\[ERROR\]|ERROR:|sshd.*failed password|mysqld.*\[ERROR\]|\bERROR\b/i.test(line)) return 'ERROR';
   if(/\[WARN\]|WARNING|WARN:/i.test(line)) return 'WARN';
@@ -250,125 +386,181 @@ function parseLevel(line){
   if(/ALERT.*OK|RECOVERY/i.test(line)) return 'INFO';
   return 'INFO';
 }
-
 function parseTime(line){
   let m;
-  m = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/); if(m) return m[1];
-  m = line.match(/\[(\d{10})\]/); if(m){ const d = new Date(parseInt(m[1])*1000); return d.toISOString().slice(0,16).replace('T',' '); }
-  m = line.match(/(Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb)\s+\d+\s+\d{2}:\d{2}/i); if(m) return m[0];
+  m=line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);if(m) return m[1];
+  m=line.match(/\[(\d{10})\]/);if(m){const d=new Date(parseInt(m[1])*1000);return d.toISOString().slice(0,16).replace('T',' ');}
+  m=line.match(/(Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb)\s+\d+\s+\d{2}:\d{2}/i);if(m) return m[0];
   return null;
 }
-
 function extractMsg(line){
-  let s = line.replace(/^\[?\d{10}\]?\s*/, '').replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s*/, '');
-  s = s.replace(/\[(ERROR|WARN|INFO|DEBUG|CRIT)\]\s*/i, '');
-  return s.trim() || line;
+  let s=line.replace(/^\[?\d{10}\]?\s*/,'').replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s*/,'');
+  return s.replace(/\[(ERROR|WARN|INFO|DEBUG|CRIT)\]\s*/i,'').trim()||line;
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function highlight(text,kw){
+  if(!kw) return esc(text);
+  const re=new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+  return esc(text).replace(re,m=>`<span class="hl">${m}</span>`);
 }
 
+// ── Main analyze ─────────────────────────────────────────────────────────────
 function analyze(){
-  const raw = document.getElementById('logInput').value;
-  const filt = document.getElementById('filterIn').value.toLowerCase();
-  const lvl = document.getElementById('levelSel').value;
-  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  parsed = lines.map(l => ({raw:l, level:parseLevel(l), time:parseTime(l), msg:extractMsg(l)}));
-  let shown = parsed.filter(e => (!filt || e.raw.toLowerCase().includes(filt)) && (!lvl || e.level === lvl));
+  const raw=document.getElementById('logInput').value;
+  const filt=document.getElementById('filterIn').value.toLowerCase();
+  const lvl=document.getElementById('levelSel').value;
+  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  parsed=lines.map(l=>({raw:l,level:parseLevel(l),time:parseTime(l),msg:extractMsg(l)}));
+  const shown=parsed.filter(e=>(!filt||e.raw.toLowerCase().includes(filt))&&(!lvl||e.level===lvl));
 
-  const counts = {ERROR:0, WARN:0, INFO:0, DEBUG:0, CRIT:0};
-  parsed.forEach(e => counts[e.level] = (counts[e.level]||0) + 1);
-  document.getElementById('sTotal').textContent = parsed.length;
-  document.getElementById('sErr').textContent = (counts.ERROR||0) + (counts.CRIT||0);
-  document.getElementById('sWarn').textContent = counts.WARN || 0;
-  document.getElementById('sInfo').textContent = (counts.INFO||0) + (counts.DEBUG||0);
+  const counts={ERROR:0,WARN:0,INFO:0,DEBUG:0,CRIT:0};
+  parsed.forEach(e=>counts[e.level]=(counts[e.level]||0)+1);
+  document.getElementById('sTotal').textContent=parsed.length;
+  document.getElementById('sErr').textContent=(counts.ERROR||0)+(counts.CRIT||0);
+  document.getElementById('sWarn').textContent=counts.WARN||0;
+  document.getElementById('sInfo').textContent=(counts.INFO||0)+(counts.DEBUG||0);
+  document.getElementById('sShowing').textContent=shown.length;
+  document.getElementById('showingLabel').textContent=
+    (filt||lvl)?`Showing ${shown.length} of ${parsed.length} entries`:`${parsed.length} entries`;
 
-  renderParsed(shown);
+  renderParsed(shown,filt);
   renderPatterns(parsed);
   renderTimeline(parsed);
+  if(document.getElementById('tab-chart').style.display!=='none') renderCharts(parsed);
 }
 
-function renderParsed(entries){
-  const el = document.getElementById('logList');
-  if(!entries.length){ el.innerHTML='<div class="empty">No matching log entries.</div>'; return; }
-  el.innerHTML = entries.map(e => `<div class="log-entry" onclick="showDetail(${parsed.indexOf(e)})">
+// ── Render: parsed ───────────────────────────────────────────────────────────
+function renderParsed(entries,filt){
+  const el=document.getElementById('logList');
+  if(!entries.length){el.innerHTML='<div class="empty">No matching log entries.</div>';return;}
+  el.innerHTML=entries.map(e=>`<div class="log-entry" onclick="showDetail(${parsed.indexOf(e)})">
     <span class="lev ${e.level}">${e.level}</span>
-    <span class="log-msg">${esc(e.msg.slice(0,160))}</span>
-    ${e.time ? `<span class="log-time">${esc(e.time.slice(11)||e.time.slice(0,10))}</span>` : ''}
+    <span class="log-msg">${highlight(e.msg.slice(0,160),filt)}</span>
+    ${e.time?`<span class="log-time">${esc(e.time.slice(11)||e.time.slice(0,10))}</span>`:''}
   </div>`).join('');
 }
-
 function showDetail(idx){
-  const e = parsed[idx]; if(!e) return;
-  const puppetMatches = PUPPET_PATTERNS.filter(p => p.re.test(e.raw));
-  let html = `<span class="dk">Raw line:</span> <span class="code">${esc(e.raw.slice(0,200))}</span><br>`;
-  if(e.time) html += `<span class="dk">Timestamp:</span> ${esc(e.time)}&nbsp; `;
-  html += `<span class="dk">Level:</span> ${e.level}<br>`;
-  if(puppetMatches.length){
-    html += `<span class="dk">Signals:</span> `;
-    html += puppetMatches.map(p => `<span class="lev ${p.sev==='error'?'ERROR':p.sev==='critical'?'CRIT':p.sev==='warn'?'WARN':'INFO'}" style="margin-right:4px">${esc(p.label)}</span>`).join('');
+  const e=parsed[idx];if(!e) return;
+  const pm=PUPPET_PATTERNS.filter(p=>p.re.test(e.raw));
+  let html=`<span class="dk">Raw line:</span> <span class="code">${esc(e.raw.slice(0,220))}</span><br>`;
+  if(e.time) html+=`<span class="dk">Timestamp:</span> ${esc(e.time)}&nbsp; `;
+  html+=`<span class="dk">Level:</span> ${e.level}<br>`;
+  if(pm.length){
+    html+=`<span class="dk">Signals:</span> `;
+    html+=pm.map(p=>`<span class="lev ${p.sev==='error'?'ERROR':p.sev==='critical'?'CRIT':p.sev==='warn'?'WARN':'INFO'}" style="margin-right:4px">${esc(p.label)}</span>`).join('');
   }
-  document.getElementById('detailPanel').innerHTML = html;
+  document.getElementById('detailPanel').innerHTML=html;
 }
 
+// ── Render: patterns ─────────────────────────────────────────────────────────
 function renderPatterns(entries){
-  const patMap = {};
-  entries.forEach(e => {
-    PUPPET_PATTERNS.forEach(p => {
-      if(p.re.test(e.raw)) patMap[p.label] = (patMap[p.label]||0) + 1;
-    });
-  });
-  const sorted = Object.entries(patMap).sort((a,b) => b[1]-a[1]);
-  const max = sorted[0] ? sorted[0][1] : 1;
-
-  const pl = document.getElementById('patternList');
-  if(!sorted.length){ pl.innerHTML='<div class="empty">No patterns found.</div>'; return; }
-  pl.innerHTML = sorted.slice(0,8).map(([name,cnt]) => `<div class="pattern-item">
+  const pm={};
+  entries.forEach(e=>PUPPET_PATTERNS.forEach(p=>{if(p.re.test(e.raw)) pm[p.label]=(pm[p.label]||0)+1;}));
+  const sorted=Object.entries(pm).sort((a,b)=>b[1]-a[1]);
+  const max=sorted[0]?sorted[0][1]:1;
+  const pl=document.getElementById('patternList');
+  if(!sorted.length){pl.innerHTML='<div class="empty">No patterns found.</div>';return;}
+  pl.innerHTML=sorted.slice(0,8).map(([name,cnt])=>`<div class="pattern-item">
     <span class="pattern-name">${esc(name)}</span>
     <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(cnt/max*100)}%;background:#378ADD"></div></div>
     <span class="pattern-count">${cnt}</span>
   </div>`).join('');
 
-  const puppetSignals = entries.filter(e => /puppet/i.test(e.raw));
-  const ps = document.getElementById('puppetSignals');
-  if(!puppetSignals.length){ ps.innerHTML='<div class="empty">No Puppet-specific lines detected.</div>'; return; }
-  const catalog = puppetSignals.filter(e => /catalog/i.test(e.raw)).length;
-  const ssl = puppetSignals.filter(e => /ssl|certificate/i.test(e.raw)).length;
-  const runs = puppetSignals.filter(e => /finished catalog run/i.test(e.raw));
-  const lastRun = runs[runs.length-1];
-  const timeMatch = lastRun ? lastRun.raw.match(/(\d+\.\d+) seconds/) : null;
-  ps.innerHTML = `<div class="pattern-item"><span class="pattern-name">Puppet log lines</span><span class="pattern-count">${puppetSignals.length}</span></div>
-<div class="pattern-item"><span class="pattern-name">Catalog-related</span><span class="pattern-count">${catalog}</span></div>
-${ssl ? `<div class="pattern-item"><span class="pattern-name" style="color:#a32d2d">SSL/cert issues</span><span class="pattern-count">${ssl}</span></div>` : ''}
-${timeMatch ? `<div class="pattern-item"><span class="pattern-name">Last run time</span><span class="pattern-count">${timeMatch[1]}s</span></div>` : ''}`;
+  const ps=entries.filter(e=>/puppet/i.test(e.raw));
+  const psel=document.getElementById('puppetSignals');
+  if(!ps.length){psel.innerHTML='<div class="empty">No Puppet-specific lines detected.</div>';return;}
+  const cat=ps.filter(e=>/catalog/i.test(e.raw)).length;
+  const ssl=ps.filter(e=>/ssl|certificate/i.test(e.raw)).length;
+  const runs=ps.filter(e=>/finished catalog run/i.test(e.raw));
+  const tm=runs[runs.length-1]?runs[runs.length-1].raw.match(/(\d+\.\d+) seconds/):null;
+  psel.innerHTML=`<div class="pattern-item"><span class="pattern-name">Puppet log lines</span><span class="pattern-count">${ps.length}</span></div>
+<div class="pattern-item"><span class="pattern-name">Catalog-related</span><span class="pattern-count">${cat}</span></div>
+${ssl?`<div class="pattern-item"><span class="pattern-name" style="color:var(--err)">SSL/cert issues</span><span class="pattern-count">${ssl}</span></div>`:''}
+${tm?`<div class="pattern-item"><span class="pattern-name">Last run time</span><span class="pattern-count">${tm[1]}s</span></div>`:''}`;
 }
 
+// ── Render: timeline ─────────────────────────────────────────────────────────
 function renderTimeline(entries){
-  const tl = {};
-  entries.forEach(e => {
+  const tl={};
+  entries.forEach(e=>{
     if(!e.time) return;
-    const key = e.time.slice(0,16);
-    if(!tl[key]) tl[key] = {total:0, err:0};
+    const key=e.time.slice(0,16);
+    if(!tl[key]) tl[key]={total:0,err:0};
     tl[key].total++;
-    if(e.level==='ERROR' || e.level==='CRIT') tl[key].err++;
+    if(e.level==='ERROR'||e.level==='CRIT') tl[key].err++;
   });
-  const sorted = Object.entries(tl).sort((a,b) => a[0]>b[0]?1:-1);
-  const el = document.getElementById('tlList');
-  if(!sorted.length){ el.innerHTML='<div class="empty">No timestamped entries found.</div>'; return; }
-  const maxC = Math.max(...sorted.map(([,v]) => v.total));
-  el.innerHTML = sorted.map(([t,v]) => `<div class="tl-row">
+  const sorted=Object.entries(tl).sort((a,b)=>a[0]>b[0]?1:-1);
+  const el=document.getElementById('tlList');
+  if(!sorted.length){el.innerHTML='<div class="empty">No timestamped entries found.</div>';return;}
+  const maxC=Math.max(...sorted.map(([,v])=>v.total));
+  el.innerHTML=sorted.map(([t,v])=>`<div class="tl-row">
     <span class="tl-time">${t.slice(11)||t.slice(5,10)}</span>
     <div class="bar-bg" style="flex:1"><div class="tl-bar" style="width:${Math.round(v.total/maxC*100)}%;background:${v.err>0?'#E24B4A':'#378ADD'}"></div></div>
-    <span class="tl-count">${v.total}${v.err?` <span style="color:#a32d2d">(${v.err}e)</span>`:''}</span>
+    <span class="tl-count">${v.total}${v.err?` <span style="color:var(--err)">(${v.err}e)</span>`:''}</span>
   </div>`).join('');
 }
 
-function switchTab(name, el){
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  ['parsed','patterns','timeline'].forEach(t => {
-    document.getElementById('tab-'+t).style.display = (t===name ? '' : 'none');
+// ── Render: charts ────────────────────────────────────────────────────────────
+function renderCharts(entries){
+  const dark=document.body.classList.contains('dark');
+  const tc=dark?'#8a90a0':'#5f5e5a';
+  const gc=dark?'#2e3548':'#e8e8e4';
+
+  const counts={ERROR:0,WARN:0,INFO:0,DEBUG:0,CRIT:0};
+  entries.forEach(e=>counts[e.level]=(counts[e.level]||0)+1);
+
+  if(pieInst) pieInst.destroy();
+  pieInst=new Chart(document.getElementById('pieChart'),{
+    type:'doughnut',
+    data:{
+      labels:['ERROR','WARN','INFO','DEBUG','CRIT'],
+      datasets:[{
+        data:[counts.ERROR,counts.WARN,counts.INFO,counts.DEBUG,counts.CRIT],
+        backgroundColor:['#E24B4A','#D4860B','#378ADD','#888780','#A32D2D'],
+        borderWidth:2,
+        borderColor:dark?'#1e2330':'#ffffff'
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{color:tc,font:{size:11},padding:10}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/Math.max(entries.length,1)*100)}%)`}}
+      }
+    }
+  });
+
+  const pm={};
+  entries.forEach(e=>PUPPET_PATTERNS.forEach(p=>{if(p.re.test(e.raw)) pm[p.label]=(pm[p.label]||0)+1;}));
+  const top=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  if(barInst) barInst.destroy();
+  barInst=new Chart(document.getElementById('barChart'),{
+    type:'bar',
+    data:{
+      labels:top.map(([l])=>l.length>18?l.slice(0,18)+'…':l),
+      datasets:[{label:'Count',data:top.map(([,c])=>c),backgroundColor:'#378ADD',borderRadius:4,borderSkipped:false}]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:tc,font:{size:10}},grid:{color:gc}},
+        y:{ticks:{color:tc,font:{size:10}},grid:{display:false}}
+      }
+    }
   });
 }
 
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// ── Tab switch ────────────────────────────────────────────────────────────────
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['parsed','patterns','timeline','chart'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=(t===name?'':'none');
+  });
+  if(name==='chart') renderCharts(parsed);
+}
 
 analyze();
 </script>
